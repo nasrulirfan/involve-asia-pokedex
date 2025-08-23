@@ -1,0 +1,32 @@
+# Production configuration for Docker Compose
+version: '3.8'
+
+services:
+  backend:
+    build:
+      target: production
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+    volumes:
+      - ./backend/storage:/var/www/storage
+    restart: always
+
+  frontend:
+    build:
+      target: production
+    environment:
+      - NODE_ENV=production
+    restart: always
+
+  redis:
+    restart: always
+    # Don't expose Redis port in production
+    ports: []
+
+  nginx:
+    restart: always
+    # Only expose HTTP/HTTPS ports in production
+    ports:
+      - "80:80"
+      - "443:443"
