@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\PokemonController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -14,14 +15,7 @@ Route::get('/health', function () {
 
 // Pokemon API routes
 Route::prefix('pokemons')->group(function () {
-    Route::get('/', function () {
-        return response()->json([
-            'message' => 'Pokemon API endpoint - ready for implementation',
-            'endpoints' => [
-                'GET /api/pokemons' => 'Get paginated list of Pokemon'
-            ]
-        ]);
-    });
+    Route::get('/', [PokemonController::class, 'index']);
 });
 
 // User routes (for future authentication if needed)

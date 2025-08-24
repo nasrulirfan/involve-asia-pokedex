@@ -11,7 +11,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(\App\Services\PokeApiClient::class, function ($app) {
+            return new \App\Services\PokeApiClient();
+        });
+
+        $this->app->singleton(\App\Services\PokemonService::class, function ($app) {
+            return new \App\Services\PokemonService(
+                $app->make(\App\Services\PokeApiClient::class)
+            );
+        });
     }
 
     /**

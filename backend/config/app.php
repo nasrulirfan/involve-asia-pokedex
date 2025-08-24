@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | PokeAPI Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for the PokeAPI client service.
+    |
+    */
+
+    'pokeapi_base_url' => env('POKEAPI_BASE_URL', 'https://pokeapi.co/api/v2'),
+    'pokeapi_cache_ttl' => env('POKEAPI_CACHE_TTL', 86400), // 24 hours in seconds
+
 ];
