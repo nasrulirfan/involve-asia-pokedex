@@ -745,7 +745,3 @@ Import the following collection URL or create requests manually:
 - 💾 Backup and restore utilities
 - 📊 Monitoring and logging
 - 🔒 SSL/TLS encryption
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
