@@ -3,7 +3,6 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Throwable;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -22,10 +21,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api([
             \App\Http\Middleware\ApiLogger::class,
         ]);
+        
+        // Register custom middleware aliases
+        $middleware->alias([
+            'performance.headers' => \App\Http\Middleware\PerformanceHeaders::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Handle API exceptions with JSON responses
-        $exceptions->render(function (Throwable $e, $request) {
+        $exceptions->render(function (\Throwable $e, $request) {
             if ($request->is('api/*')) {
                 return response()->json([
                     'success' => false,

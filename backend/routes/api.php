@@ -13,8 +13,8 @@ Route::get('/health', function () {
     ]);
 });
 
-// Pokemon API routes
-Route::prefix('pokemons')->group(function () {
+// Pokemon API routes with performance middleware
+Route::prefix('pokemons')->middleware('performance.headers')->group(function () {
     Route::get('/', [PokemonController::class, 'index']);
 });
 

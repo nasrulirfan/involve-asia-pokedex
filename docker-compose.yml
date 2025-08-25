@@ -6,24 +6,36 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-development}
     container_name: pokedex_backend
     restart: unless-stopped
     working_dir: /var/www
     volumes:
       - ./backend:/var/www
       - ./backend/storage:/var/www/storage
+      - backend_vendor:/var/www/vendor
     environment:
       - APP_ENV=${APP_ENV:-local}
       - APP_DEBUG=${APP_DEBUG:-true}
       - APP_KEY=${APP_KEY}
+      - APP_URL=${APP_URL:-http://localhost}
       - CACHE_DRIVER=redis
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-pokedex_redis_pass}
+      - LOG_CHANNEL=stderr
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - pokedex_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Next.js Frontend
   frontend:
@@ -35,28 +47,47 @@ services:
     restart: unless-stopped
     volumes:
       - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+      - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/.next
     environment:
       - NODE_ENV=${NODE_ENV:-development}
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost/api}
+      - NEXT_TELEMETRY_DISABLED=1
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - pokedex_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: pokedex_redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-pokedex_redis_pass}
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-pokedex_redis_pass}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     networks:
       - pokedex_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    sysctls:
+      - net.core.somaxconn=1024
 
   # Nginx Reverse Proxy
   nginx:
@@ -66,21 +97,41 @@ services:
     container_name: pokedex_nginx
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
     networks:
       - pokedex_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 volumes:
   redis_data:
+    driver: local
+  backend_vendor:
+    driver: local
+  frontend_node_modules:
+    driver: local
+  frontend_next:
+    driver: local
+  nginx_logs:
     driver: local
 
 networks:
   pokedex_network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

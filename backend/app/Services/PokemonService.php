@@ -18,70 +18,163 @@ class PokemonService
      *
      * @param int $page Page number (1-based)
      * @param int $limit Number of Pokemon per page
+     * @param string|null $search Search query to filter Pokemon by name
      * @return array
      * @throws \Exception
      */
-    public function getPokemonList(int $page = 1, int $limit = 20): array
+    public function getPokemonList(int $page = 1, int $limit = 20, ?string $search = null): array
     {
-        // Calculate offset for PokeAPI (0-based)
-        $offset = ($page - 1) * $limit;
-        
         Log::info('Fetching Pokemon list', [
             'page' => $page,
             'limit' => $limit,
-            'offset' => $offset
+            'search' => $search
         ]);
 
         try {
-            // Get Pokemon list from PokeAPI
-            $pokemonListResponse = $this->pokeApiClient->getPokemonList($limit, $offset);
-            
-            if (!isset($pokemonListResponse['results']) || !isset($pokemonListResponse['count'])) {
-                throw new \Exception('Invalid Pokemon list response format');
+            if ($search && !empty(trim($search))) {
+                // Handle search functionality
+                return $this->searchPokemon($search, $page, $limit);
             }
 
-            $pokemonList = $pokemonListResponse['results'];
-            $totalCount = $pokemonListResponse['count'];
-            
-            // Calculate pagination metadata
-            $totalPages = (int) ceil($totalCount / $limit);
-            $hasNext = $page < $totalPages;
-
-            // Fetch detailed information for each Pokemon
-            $detailedPokemon = [];
-            foreach ($pokemonList as $pokemon) {
-                try {
-                    $pokemonDetails = $this->fetchPokemonDetails($pokemon['url']);
-                    $detailedPokemon[] = $this->formatPokemonData($pokemonDetails);
-                } catch (\Exception $e) {
-                    Log::warning('Failed to fetch Pokemon details', [
-                        'pokemon_name' => $pokemon['name'] ?? 'unknown',
-                        'url' => $pokemon['url'] ?? 'unknown',
-                        'error' => $e->getMessage()
-                    ]);
-                    // Continue with other Pokemon instead of failing completely
-                    continue;
-                }
-            }
-
-            return [
-                'data' => $detailedPokemon,
-                'pagination' => [
-                    'current_page' => $page,
-                    'total_pages' => $totalPages,
-                    'total_count' => $totalCount,
-                    'has_next' => $hasNext
-                ]
-            ];
+            // Regular pagination without search
+            return $this->getPaginatedPokemonList($page, $limit);
 
         } catch (\Exception $e) {
             Log::error('Failed to get Pokemon list', [
                 'page' => $page,
                 'limit' => $limit,
+                'search' => $search,
                 'error' => $e->getMessage()
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * Get paginated Pokemon list without search
+     *
+     * @param int $page
+     * @param int $limit
+     * @return array
+     * @throws \Exception
+     */
+    private function getPaginatedPokemonList(int $page, int $limit): array
+    {
+        // Calculate offset for PokeAPI (0-based)
+        $offset = ($page - 1) * $limit;
+
+        // Get Pokemon list from PokeAPI
+        $pokemonListResponse = $this->pokeApiClient->getPokemonList($limit, $offset);
+        
+        if (!isset($pokemonListResponse['results']) || !isset($pokemonListResponse['count'])) {
+            throw new \Exception('Invalid Pokemon list response format');
+        }
+
+        $pokemonList = $pokemonListResponse['results'];
+        $totalCount = $pokemonListResponse['count'];
+        
+        // Calculate pagination metadata
+        $totalPages = (int) ceil($totalCount / $limit);
+        $hasNext = $page < $totalPages;
+
+        // Fetch detailed information for each Pokemon
+        $detailedPokemon = [];
+        foreach ($pokemonList as $pokemon) {
+            try {
+                $pokemonDetails = $this->fetchPokemonDetails($pokemon['url']);
+                $detailedPokemon[] = $this->formatPokemonData($pokemonDetails);
+            } catch (\Exception $e) {
+                Log::warning('Failed to fetch Pokemon details', [
+                    'pokemon_name' => $pokemon['name'] ?? 'unknown',
+                    'url' => $pokemon['url'] ?? 'unknown',
+                    'error' => $e->getMessage()
+                ]);
+                // Continue with other Pokemon instead of failing completely
+                continue;
+            }
+        }
+
+        return [
+            'data' => $detailedPokemon,
+            'pagination' => [
+                'current_page' => $page,
+                'total_pages' => $totalPages,
+                'total_count' => $totalCount,
+                'has_next' => $hasNext
+            ]
+        ];
+    }
+
+    /**
+     * Search Pokemon by name
+     *
+     * @param string $search
+     * @param int $page
+     * @param int $limit
+     * @return array
+     * @throws \Exception
+     */
+    private function searchPokemon(string $search, int $page, int $limit): array
+    {
+        $searchTerm = strtolower(trim($search));
+        
+        Log::info('Searching Pokemon', [
+            'search_term' => $searchTerm,
+            'page' => $page,
+            'limit' => $limit
+        ]);
+
+        // For search, we need to get a larger dataset to search through
+        // We'll fetch multiple pages and filter them
+        $searchLimit = min(1000, 200); // Reasonable limit for search
+        $allPokemonResponse = $this->pokeApiClient->getPokemonList($searchLimit, 0);
+        
+        if (!isset($allPokemonResponse['results'])) {
+            throw new \Exception('Invalid Pokemon search response format');
+        }
+
+        // Filter Pokemon by name
+        $matchingPokemon = [];
+        foreach ($allPokemonResponse['results'] as $pokemon) {
+            if (str_contains(strtolower($pokemon['name']), $searchTerm)) {
+                $matchingPokemon[] = $pokemon;
+            }
+        }
+
+        // Calculate pagination for search results
+        $totalMatches = count($matchingPokemon);
+        $totalPages = (int) ceil($totalMatches / $limit);
+        $hasNext = $page < $totalPages;
+        
+        // Get the Pokemon for the current page
+        $offset = ($page - 1) * $limit;
+        $pageResults = array_slice($matchingPokemon, $offset, $limit);
+
+        // Fetch detailed information for matching Pokemon
+        $detailedPokemon = [];
+        foreach ($pageResults as $pokemon) {
+            try {
+                $pokemonDetails = $this->fetchPokemonDetails($pokemon['url']);
+                $detailedPokemon[] = $this->formatPokemonData($pokemonDetails);
+            } catch (\Exception $e) {
+                Log::warning('Failed to fetch Pokemon details during search', [
+                    'pokemon_name' => $pokemon['name'] ?? 'unknown',
+                    'url' => $pokemon['url'] ?? 'unknown',
+                    'error' => $e->getMessage()
+                ]);
+                continue;
+            }
+        }
+
+        return [
+            'data' => $detailedPokemon,
+            'pagination' => [
+                'current_page' => $page,
+                'total_pages' => $totalPages,
+                'total_count' => $totalMatches,
+                'has_next' => $hasNext
+            ]
+        ];
     }
 
     /**

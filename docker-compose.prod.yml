@@ -8,21 +8,56 @@ services:
     environment:
       - APP_ENV=production
       - APP_DEBUG=false
+      - LOG_LEVEL=warning
+      - CACHE_DRIVER=redis
+      - SESSION_DRIVER=redis
+      - QUEUE_CONNECTION=redis
     volumes:
+      # Only mount storage directory in production
       - ./backend/storage:/var/www/storage
+      - backend_logs:/var/www/storage/logs
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
   frontend:
     build:
       target: production
     environment:
       - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes: []  # No volumes in production
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
 
   redis:
     restart: always
     # Don't expose Redis port in production
     ports: []
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
 
   nginx:
     restart: always
@@ -30,3 +65,13 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+volumes:
+  backend_logs:
+    driver: local

@@ -1,0 +1,87 @@
+# Laravel Backend Docker Ignore
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Laravel specific
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+.env
+.env.backup
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+
+# Logs
+*.log
+/storage/logs/*.log
+
+# Cache
+/bootstrap/cache/*.php
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/testing/*
+/storage/framework/views/*
+
+# Testing
+/coverage
+.phpunit.cache
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+
+# Docker files (not needed in container)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Temporary files
+/tmp
+*.tmp
+*.temp
+
+# Build artifacts
+/build
+/dist
+
+# Package manager files
+package-lock.json
+yarn.lock
+composer.lock
+
+# Development tools
+.php_cs.cache
+.php-cs-fixer.cache
+phpstan.neon
+phpunit.xml
+.phpunit.result.cache
