@@ -37,14 +37,12 @@ make setup-dev
    - **Main App**: http://localhost
    - **Frontend**: http://localhost:3000 (dev only)
    - **Backend API**: http://localhost:8000 (dev only)
-   - **HTTPS**: https://localhost (with self-signed cert)
 
 ## 📋 Prerequisites
 
 - Docker Engine 20.10+
 - Docker Compose 2.0+
 - Make (optional, for convenience commands)
-- At least 2GB RAM and 5GB disk space
 
 ## 🛠️ Development Commands
 

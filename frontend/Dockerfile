@@ -1,5 +1,5 @@
 # Multi-stage build for Next.js frontend
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -28,20 +28,25 @@ COPY . .
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
-RUN chown -R nextjs:nodejs /app
-
-USER nextjs
 
 EXPOSE 3000
 
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-# Health check
+# Health check using wget (available in alpine)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/api/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-CMD ["npm", "run", "dev"]
+# Create startup script to fix permissions and run as nextjs user
+RUN echo '#!/bin/sh' > /entrypoint.sh && \
+    echo 'mkdir -p /app/.next' >> /entrypoint.sh && \
+    echo 'chown -R nextjs:nodejs /app/.next' >> /entrypoint.sh && \
+    echo 'chown -R nextjs:nodejs /app/node_modules' >> /entrypoint.sh && \
+    echo 'su nextjs -c "npm run dev"' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+CMD ["/entrypoint.sh"]
 
 # Rebuild the source code only when needed
 FROM base AS builder

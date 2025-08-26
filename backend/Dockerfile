@@ -12,7 +12,12 @@ RUN apk add --no-cache \
     oniguruma-dev \
     libzip-dev \
     redis \
-    supervisor
+    supervisor \
+    autoconf \
+    gcc \
+    g++ \
+    make \
+    libc-dev
 
 # Install PHP extensions
 RUN docker-php-ext-install \
@@ -44,8 +49,12 @@ RUN addgroup -g 1000 www && \
 # Copy existing application directory contents
 COPY --chown=www:www . /var/www
 
-# Install dependencies
-RUN composer install --no-cache --no-dev --optimize-autoloader
+# Install dependencies (including dev dependencies for development)
+RUN composer install --no-cache --optimize-autoloader
+
+# Clear and regenerate Laravel caches
+RUN php artisan config:clear || true
+RUN php artisan package:discover --ansi || true
 
 # Change current user to www
 USER www
