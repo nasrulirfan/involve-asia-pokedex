@@ -17,26 +17,12 @@ A full-stack Pokédex application built with Laravel backend and Next.js fronten
 ```bash
 # Setup development environment (one command)
 make setup-dev
-```
 
-### Manual Setup
-
-1. **Clone and configure**
-   ```bash
-   git clone <repository-url>
-   cd pokedex-app
-   cp .env.example .env
-   ```
-
-2. **Start development environment**
-   ```bash
-   ./scripts/deploy-dev.sh
-   ```
-
-3. **Access the application**
+**Access the application**
    - **Main App**: http://localhost
    - **Frontend**: http://localhost:3000 (dev only)
    - **Backend API**: http://localhost:8000 (dev only)
+```
 
 ## 📋 Prerequisites
 
@@ -44,19 +30,264 @@ make setup-dev
 - Docker Compose 2.0+
 - Make (optional, for convenience commands)
 
-## 🛠️ Development Commands
 
-### Using Make Commands
+## 📡 API Documentation
 
-```bash
-make help              # Show all available commands
-make dev               # Start development environment
-make prod              # Start production environment
-make logs              # Show all service logs
-make health            # Run health checks
-make backup            # Create application backup
-make clean             # Clean up Docker resources
+### Base URL
+- **Development**: `http://localhost:8000/api`
+
+### Authentication
+Currently, the API does not require authentication for Pokemon data endpoints.
+
+### Health Check
+
+#### GET `/health`
+Check API service status.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-15T10:30:00.000000Z",
+  "service": "Pokedex API"
+}
 ```
+
+### Pokemon Endpoints
+
+#### GET `/pokemons`
+Retrieve a paginated list of Pokemon with search and filtering capabilities.
+
+**Query Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | integer | 1 | Page number for pagination |
+| `limit` | integer | 20 | Number of items per page (max: 100) |
+| `search` | string | - | Search by Pokemon name |
+| `type` | string | - | Filter by Pokemon type |
+| `sort` | string | `id` | Sort field (`id`, `name`, `height`, `weight`) |
+| `order` | string | `asc` | Sort order (`asc`, `desc`) |
+
+**Example Request:**
+```bash
+curl "http://localhost:8000/api/pokemons?page=1&limit=20&search=pika&type=electric"
+```
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": 25,
+      "name": "pikachu",
+      "height": 4,
+      "weight": 60,
+      "base_experience": 112,
+      "types": [
+        {
+          "slot": 1,
+          "type": {
+            "name": "electric",
+            "url": "https://pokeapi.co/api/v2/type/13/"
+          }
+        }
+      ],
+      "sprites": {
+        "front_default": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png",
+        "front_shiny": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/25.png",
+        "other": {
+          "official-artwork": {
+            "front_default": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png"
+          }
+        }
+      },
+      "stats": [
+        {
+          "base_stat": 35,
+          "effort": 0,
+          "stat": {
+            "name": "hp"
+          }
+        },
+        {
+          "base_stat": 55,
+          "effort": 0,
+          "stat": {
+            "name": "attack"
+          }
+        }
+      ],
+      "abilities": [
+        {
+          "ability": {
+            "name": "static",
+            "url": "https://pokeapi.co/api/v2/ability/9/"
+          },
+          "is_hidden": false,
+          "slot": 1
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "current_page": 1,
+    "per_page": 20,
+    "total": 1302,
+    "last_page": 66,
+    "from": 1,
+    "to": 20
+  },
+  "links": {
+    "first": "http://localhost:8000/api/pokemons?page=1",
+    "last": "http://localhost:8000/api/pokemons?page=66",
+    "prev": null,
+    "next": "http://localhost:8000/api/pokemons?page=2"
+  }
+}
+```
+
+#### GET `/pokemons/{id}`
+Retrieve detailed information about a specific Pokemon.
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | integer | Pokemon ID (1-1302) |
+
+**Example Request:**
+```bash
+curl "http://localhost:8000/api/pokemons/25"
+```
+
+**Response:**
+```json
+{
+  "data": {
+    "id": 25,
+    "name": "pikachu",
+    "height": 4,
+    "weight": 60,
+    "base_experience": 112,
+    "types": [...],
+    "sprites": {...},
+    "stats": [...],
+    "abilities": [...],
+    "moves": [...],
+    "species": {
+      "name": "pikachu",
+      "url": "https://pokeapi.co/api/v2/pokemon-species/25/"
+    }
+  }
+}
+```
+
+### Error Responses
+
+#### 400 Bad Request
+```json
+{
+  "error": "Bad Request",
+  "message": "Invalid parameter value",
+  "details": {
+    "limit": ["The limit must be between 1 and 100."]
+  }
+}
+```
+
+#### 404 Not Found
+```json
+{
+  "error": "Not Found",
+  "message": "Pokemon not found"
+}
+```
+
+#### 429 Too Many Requests
+```json
+{
+  "error": "Too Many Requests",
+  "message": "Rate limit exceeded. Please try again later.",
+  "retry_after": 60
+}
+```
+
+#### 500 Internal Server Error
+```json
+{
+  "error": "Internal Server Error",
+  "message": "An unexpected error occurred"
+}
+```
+
+### Rate Limiting
+- **API Endpoints**: 10 requests per second per IP
+- **General Endpoints**: 30 requests per second per IP
+- **Headers**: Rate limit information is included in response headers:
+  - `X-RateLimit-Limit`: Request limit per window
+  - `X-RateLimit-Remaining`: Remaining requests in current window
+  - `X-RateLimit-Reset`: Time when the rate limit resets
+
+### Caching
+- **Redis Cache**: API responses are cached for 1 hour
+- **Cache Headers**: Responses include cache control headers
+- **Cache Invalidation**: Cache is automatically invalidated when data changes
+
+### Performance Headers
+All API responses include performance monitoring headers:
+- `X-Response-Time`: Response time in milliseconds
+- `X-Memory-Usage`: Memory usage in MB
+- `X-Cache-Status`: Cache hit/miss status
+
+### CORS Configuration
+The API supports Cross-Origin Resource Sharing (CORS) with the following configuration:
+- **Allowed Origins**: Configurable via `CORS_ALLOWED_ORIGINS` environment variable
+- **Allowed Methods**: GET, POST, OPTIONS, PUT, DELETE
+- **Allowed Headers**: Content-Type, Authorization, X-Requested-With
+- **Credentials**: Supported for authenticated requests
+
+### Testing the API
+
+#### Using cURL
+```bash
+# Get all Pokemon
+curl -X GET "http://localhost:8000/api/pokemons"
+
+# Search for Pokemon
+curl -X GET "http://localhost:8000/api/pokemons?search=charizard"
+
+# Get specific Pokemon
+curl -X GET "http://localhost:8000/api/pokemons/6"
+
+# Health check
+curl -X GET "http://localhost:8000/api/health"
+```
+
+## 🎯 Features
+
+### Frontend Features
+- 🎠 Auto-rotating carousel banner
+- 🔍 Real-time Pokemon search
+- 📱 Responsive design with persistent layout
+- ♾️ Infinite scroll pagination
+- 🎨 Type-based color coding
+- ⚡ Optimized performance with caching
+
+### Backend Features
+- 🔄 PokeAPI integration with caching
+- 📊 Paginated API responses
+- 🛡️ Request validation and rate limiting
+- 📈 Performance monitoring
+- 🔒 Security headers and CORS
+
+### DevOps Features
+- 🐳 Multi-stage Docker builds
+- 🔄 Health checks and auto-restart
+- 📦 Automated deployment scripts
+- 💾 Backup and restore utilities
+- 📊 Monitoring and logging
+- 🔒 SSL/TLS encryption
+
+## 🛠️ Development Commands
 
 ### Direct Docker Commands
 
@@ -462,284 +693,3 @@ frontend/
 ├── Dockerfile                             # Docker configuration
 └── .env.local                             # Environment variables
 ```
-
-## 📡 API Documentation
-
-### Base URL
-- **Development**: `http://localhost:8000/api`
-
-### Authentication
-Currently, the API does not require authentication for Pokemon data endpoints.
-
-### Health Check
-
-#### GET `/health`
-Check API service status.
-
-**Response:**
-```json
-{
-  "status": "ok",
-  "timestamp": "2024-01-15T10:30:00.000000Z",
-  "service": "Pokedex API"
-}
-```
-
-### Pokemon Endpoints
-
-#### GET `/pokemons`
-Retrieve a paginated list of Pokemon with search and filtering capabilities.
-
-**Query Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `page` | integer | 1 | Page number for pagination |
-| `limit` | integer | 20 | Number of items per page (max: 100) |
-| `search` | string | - | Search by Pokemon name |
-| `type` | string | - | Filter by Pokemon type |
-| `sort` | string | `id` | Sort field (`id`, `name`, `height`, `weight`) |
-| `order` | string | `asc` | Sort order (`asc`, `desc`) |
-
-**Example Request:**
-```bash
-curl "http://localhost:8000/api/pokemons?page=1&limit=20&search=pika&type=electric"
-```
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "id": 25,
-      "name": "pikachu",
-      "height": 4,
-      "weight": 60,
-      "base_experience": 112,
-      "types": [
-        {
-          "slot": 1,
-          "type": {
-            "name": "electric",
-            "url": "https://pokeapi.co/api/v2/type/13/"
-          }
-        }
-      ],
-      "sprites": {
-        "front_default": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png",
-        "front_shiny": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/25.png",
-        "other": {
-          "official-artwork": {
-            "front_default": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png"
-          }
-        }
-      },
-      "stats": [
-        {
-          "base_stat": 35,
-          "effort": 0,
-          "stat": {
-            "name": "hp"
-          }
-        },
-        {
-          "base_stat": 55,
-          "effort": 0,
-          "stat": {
-            "name": "attack"
-          }
-        }
-      ],
-      "abilities": [
-        {
-          "ability": {
-            "name": "static",
-            "url": "https://pokeapi.co/api/v2/ability/9/"
-          },
-          "is_hidden": false,
-          "slot": 1
-        }
-      ]
-    }
-  ],
-  "meta": {
-    "current_page": 1,
-    "per_page": 20,
-    "total": 1302,
-    "last_page": 66,
-    "from": 1,
-    "to": 20
-  },
-  "links": {
-    "first": "http://localhost:8000/api/pokemons?page=1",
-    "last": "http://localhost:8000/api/pokemons?page=66",
-    "prev": null,
-    "next": "http://localhost:8000/api/pokemons?page=2"
-  }
-}
-```
-
-#### GET `/pokemons/{id}`
-Retrieve detailed information about a specific Pokemon.
-
-**Path Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | integer | Pokemon ID (1-1302) |
-
-**Example Request:**
-```bash
-curl "http://localhost:8000/api/pokemons/25"
-```
-
-**Response:**
-```json
-{
-  "data": {
-    "id": 25,
-    "name": "pikachu",
-    "height": 4,
-    "weight": 60,
-    "base_experience": 112,
-    "types": [...],
-    "sprites": {...},
-    "stats": [...],
-    "abilities": [...],
-    "moves": [...],
-    "species": {
-      "name": "pikachu",
-      "url": "https://pokeapi.co/api/v2/pokemon-species/25/"
-    }
-  }
-}
-```
-
-### Error Responses
-
-#### 400 Bad Request
-```json
-{
-  "error": "Bad Request",
-  "message": "Invalid parameter value",
-  "details": {
-    "limit": ["The limit must be between 1 and 100."]
-  }
-}
-```
-
-#### 404 Not Found
-```json
-{
-  "error": "Not Found",
-  "message": "Pokemon not found"
-}
-```
-
-#### 429 Too Many Requests
-```json
-{
-  "error": "Too Many Requests",
-  "message": "Rate limit exceeded. Please try again later.",
-  "retry_after": 60
-}
-```
-
-#### 500 Internal Server Error
-```json
-{
-  "error": "Internal Server Error",
-  "message": "An unexpected error occurred"
-}
-```
-
-### Rate Limiting
-- **API Endpoints**: 10 requests per second per IP
-- **General Endpoints**: 30 requests per second per IP
-- **Headers**: Rate limit information is included in response headers:
-  - `X-RateLimit-Limit`: Request limit per window
-  - `X-RateLimit-Remaining`: Remaining requests in current window
-  - `X-RateLimit-Reset`: Time when the rate limit resets
-
-### Caching
-- **Redis Cache**: API responses are cached for 1 hour
-- **Cache Headers**: Responses include cache control headers
-- **Cache Invalidation**: Cache is automatically invalidated when data changes
-
-### Performance Headers
-All API responses include performance monitoring headers:
-- `X-Response-Time`: Response time in milliseconds
-- `X-Memory-Usage`: Memory usage in MB
-- `X-Cache-Status`: Cache hit/miss status
-
-### CORS Configuration
-The API supports Cross-Origin Resource Sharing (CORS) with the following configuration:
-- **Allowed Origins**: Configurable via `CORS_ALLOWED_ORIGINS` environment variable
-- **Allowed Methods**: GET, POST, OPTIONS, PUT, DELETE
-- **Allowed Headers**: Content-Type, Authorization, X-Requested-With
-- **Credentials**: Supported for authenticated requests
-
-### Testing the API
-
-#### Using cURL
-```bash
-# Get all Pokemon
-curl -X GET "http://localhost:8000/api/pokemons"
-
-# Search for Pokemon
-curl -X GET "http://localhost:8000/api/pokemons?search=charizard"
-
-# Get specific Pokemon
-curl -X GET "http://localhost:8000/api/pokemons/6"
-
-# Health check
-curl -X GET "http://localhost:8000/api/health"
-```
-
-#### Using HTTPie
-```bash
-# Get all Pokemon
-http GET localhost:8000/api/pokemons
-
-# Search with parameters
-http GET localhost:8000/api/pokemons search==pikachu type==electric
-
-# Get specific Pokemon
-http GET localhost:8000/api/pokemons/25
-```
-
-#### Using Postman
-Import the following collection URL or create requests manually:
-- Base URL: `http://localhost:8000/api`
-- Add requests for each endpoint listed above
-- Set appropriate headers and parameters
-
-## 📚 Documentation
-
-- **[DEPLOYMENT.md](DEPLOYMENT.md)**: Comprehensive deployment guide
-- **[DOCKER.md](DOCKER.md)**: Docker configuration details
-- **API Health**: Available at `/api/health` for status monitoring
-- **Frontend Components**: React components with TypeScript definitions
-
-## 🎯 Features
-
-### Frontend Features
-- 🎠 Auto-rotating carousel banner
-- 🔍 Real-time Pokemon search
-- 📱 Responsive design with persistent layout
-- ♾️ Infinite scroll pagination
-- 🎨 Type-based color coding
-- ⚡ Optimized performance with caching
-
-### Backend Features
-- 🔄 PokeAPI integration with caching
-- 📊 Paginated API responses
-- 🛡️ Request validation and rate limiting
-- 📈 Performance monitoring
-- 🔒 Security headers and CORS
-
-### DevOps Features
-- 🐳 Multi-stage Docker builds
-- 🔄 Health checks and auto-restart
-- 📦 Automated deployment scripts
-- 💾 Backup and restore utilities
-- 📊 Monitoring and logging
-- 🔒 SSL/TLS encryption
